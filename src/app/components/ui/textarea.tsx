@@ -1,18 +1,39 @@
-import * as React from "react";
+import { TextareaHTMLAttributes, forwardRef } from 'react';
 
-import { cn } from "./utils";
-
-function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
-  return (
-    <textarea
-      data-slot="textarea"
-      className={cn(
-        "resize-none border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 flex field-sizing-content min-h-16 w-full rounded-md border bg-input-background px-3 py-2 text-base transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-        className,
-      )}
-      {...props}
-    />
-  );
+interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+  label?: string;
+  error?: string;
+  helperText?: string;
 }
 
-export { Textarea };
+const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
+  ({ label, error, helperText, className = '', ...props }, ref) => {
+    return (
+      <div className="w-full">
+        {label && (
+          <label className="block text-[14px] font-medium text-[#111827] mb-1.5">
+            {label}
+          </label>
+        )}
+        <textarea
+          ref={ref}
+          className={`w-full px-3 py-2 bg-white border rounded-lg text-[14px] transition-colors resize-none
+            ${error ? 'border-[#DC2626] focus:ring-2 focus:ring-[#DC2626] focus:ring-opacity-20' : 'border-[#D1D5DB] focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5] focus:ring-opacity-20'}
+            disabled:bg-[#F3F4F6] disabled:cursor-not-allowed
+            outline-none ${className}`}
+          {...props}
+        />
+        {error && (
+          <p className="text-[12px] text-[#DC2626] mt-1">{error}</p>
+        )}
+        {helperText && !error && (
+          <p className="text-[12px] text-[#4B5563] mt-1">{helperText}</p>
+        )}
+      </div>
+    );
+  }
+);
+
+Textarea.displayName = 'Textarea';
+
+export default Textarea;

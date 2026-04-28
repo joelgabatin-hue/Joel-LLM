@@ -1,28 +1,8 @@
 import { GraduationCap } from 'lucide-react';
-import Button from './ui/Button';
+import { useAuth } from '../../hooks/useAuth';
 
-interface LoginProps {
-  onLogin: (role: 'admin' | 'student', email?: string) => void;
-}
-
-// List of admin email addresses
-const ADMIN_EMAILS = [
-  'admin@lms.com',
-  'joel@example.com',
-  // Add more admin emails here
-];
-
-export default function Login({ onLogin }: LoginProps) {
-  const handleGoogleLogin = () => {
-    // Simulate Google login - in production this would use Google OAuth
-    const email = prompt('Enter your Gmail address:');
-
-    if (!email) return;
-
-    // Check if email is in admin list
-    const role = ADMIN_EMAILS.includes(email.toLowerCase()) ? 'admin' : 'student';
-    onLogin(role, email);
-  };
+export default function Login() {
+  const { signInWithGoogle } = useAuth();
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#EEF2FF] to-[#E0E7FF]">
@@ -39,7 +19,7 @@ export default function Login({ onLogin }: LoginProps) {
 
         <div className="space-y-3">
           <button
-            onClick={handleGoogleLogin}
+            onClick={signInWithGoogle}
             className="w-full flex items-center justify-center gap-3 px-6 py-3 bg-white border-2 border-[#D1D5DB] rounded-lg hover:bg-[#F3F4F6] transition-colors"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">

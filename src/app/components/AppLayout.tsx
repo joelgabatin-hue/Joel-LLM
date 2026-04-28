@@ -1,14 +1,16 @@
 import { Outlet, Link, useLocation } from 'react-router';
-import { GraduationCap, LayoutDashboard, BookOpen, Users, LogOut, Plus } from 'lucide-react';
-import type { User } from '../App';
+import { GraduationCap, LayoutDashboard, BookOpen, LogOut } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
+import type { User } from '../../types';
 
 interface AppLayoutProps {
   user: User;
-  onLogout: () => void;
+  onLogout?: () => void;
 }
 
-export default function AppLayout({ user, onLogout }: AppLayoutProps) {
+export default function AppLayout({ user }: AppLayoutProps) {
   const location = useLocation();
+  const { signOut } = useAuth();
 
   const adminNavItems = [
     { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -65,19 +67,19 @@ export default function AppLayout({ user, onLogout }: AppLayoutProps) {
         <div className="p-4 border-t border-[#D1D5DB]">
           <div className="flex items-center gap-3 mb-3">
             <img
-              src={user.avatar}
-              alt={user.name}
+              src={user.avatar_url ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name ?? user.email)}&background=4F46E5&color=fff`}
+              alt={user.full_name ?? user.email}
               className="w-10 h-10 rounded-full"
             />
             <div className="flex-1 min-w-0">
-              <p className="text-[14px] font-medium text-[#111827] truncate">{user.name}</p>
+              <p className="text-[14px] font-medium text-[#111827] truncate">{user.full_name ?? user.email}</p>
               <span className="inline-flex px-2 py-0.5 bg-[#EEF2FF] text-[#4F46E5] text-[10px] font-medium rounded-full">
                 {user.role === 'admin' ? 'Admin' : 'Student'}
               </span>
             </div>
           </div>
           <button
-            onClick={onLogout}
+            onClick={signOut}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 text-[#DC2626] hover:bg-[#FEE2E2] rounded-lg transition-colors"
           >
             <LogOut className="w-4 h-4" />

@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
-import { useState } from 'react';
+import { AuthProvider, useAuth } from '../hooks/useAuth';
 import Login from './components/Login';
 import AdminDashboard from './components/admin/AdminDashboard';
 import AdminSubjects from './components/admin/AdminSubjects';
@@ -12,65 +12,90 @@ import StudentQuizTaking from './components/student/StudentQuizTaking';
 import StudentQuizResults from './components/student/StudentQuizResults';
 import AppLayout from './components/AppLayout';
 
-export type UserRole = 'admin' | 'student' | null;
-
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  avatar?: string;
+function RootRedirect() {
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+  return <Navigate to={user.role === 'admin' ? '/admin/dashboard' : '/student/dashboard'} replace />;
 }
 
-function App() {
-  const [user, setUser] = useState<User | null>(null);
+function AdminGuard({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== 'admin') return <Navigate to="/student/dashboard" replace />;
+  return <>{children}</>;
+}
 
-  const handleLogin = (role: UserRole, email?: string) => {
-    // Extract name from email (before @)
-    const emailName = email?.split('@')[0] || 'User';
-    const displayName = emailName.charAt(0).toUpperCase() + emailName.slice(1).replace(/[._]/g, ' ');
+function StudentGuard({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
 
-    setUser({
-      id: '1',
-      name: displayName,
-      email: email || 'user@example.com',
-      role: role,
-      avatar: `https://ui-avatars.com/api/?name=${displayName.replace(/\s/g, '+')}&background=4F46E5&color=fff`
-    });
-  };
+function LoginRoute() {
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
+  if (user) return <Navigate to={user.role === 'admin' ? '/admin/dashboard' : '/student/dashboard'} replace />;
+  return <Login />;
+}
 
-  const handleLogout = () => {
-    setUser(null);
-  };
-
-  if (!user) {
-    return <Login onLogin={handleLogin} />;
-  }
-
+function LoadingScreen() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<AppLayout user={user} onLogout={handleLogout} />}>
-          {/* Redirect based on role */}
-          <Route path="/" element={<Navigate to={user.role === 'admin' ? '/admin/dashboard' : '/student/dashboard'} replace />} />
-
-          {/* Admin Routes */}
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
-          <Route path="/admin/subjects" element={<AdminSubjects />} />
-          <Route path="/admin/subjects/:id" element={<AdminSubjectDetail />} />
-          <Route path="/admin/subjects/:id/quiz/new" element={<AdminQuizBuilder />} />
-          <Route path="/admin/subjects/:subjectId/quiz/:quizId/edit" element={<AdminQuizBuilder />} />
-          <Route path="/admin/subjects/:subjectId/quiz/:quizId/results" element={<AdminQuizResults />} />
-
-          {/* Student Routes */}
-          <Route path="/student/dashboard" element={<StudentDashboard />} />
-          <Route path="/student/subjects/:id" element={<StudentSubjectDetail />} />
-          <Route path="/student/quiz/:quizId/take" element={<StudentQuizTaking />} />
-          <Route path="/student/quiz/:quizId/results" element={<StudentQuizResults />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <div className="min-h-screen flex items-center justify-center bg-[#F3F4F6]">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-10 h-10 border-4 border-[#4F46E5] border-t-transparent rounded-full animate-spin" />
+        <p className="text-[#4B5563] text-sm">Loading...</p>
+      </div>
+    </div>
   );
 }
 
-export default App;
+function AppRoutes() {
+  const { user } = useAuth();
+
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginRoute />} />
+
+      <Route path="/admin" element={
+        <AdminGuard>
+          <AppLayout user={user!} onLogout={async () => {}} />
+        </AdminGuard>
+      }>
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<AdminDashboard />} />
+        <Route path="subjects" element={<AdminSubjects />} />
+        <Route path="subjects/:id" element={<AdminSubjectDetail />} />
+        <Route path="subjects/:id/quiz/new" element={<AdminQuizBuilder />} />
+        <Route path="subjects/:id/quiz/:quizId/edit" element={<AdminQuizBuilder />} />
+        <Route path="subjects/:subjectId/quiz/:quizId/results" element={<AdminQuizResults />} />
+      </Route>
+
+      <Route path="/student" element={
+        <StudentGuard>
+          <AppLayout user={user!} onLogout={async () => {}} />
+        </StudentGuard>
+      }>
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<StudentDashboard />} />
+        <Route path="subjects/:id" element={<StudentSubjectDetail />} />
+        <Route path="quiz/:quizId/take" element={<StudentQuizTaking />} />
+        <Route path="quiz/:quizId/results" element={<StudentQuizResults />} />
+      </Route>
+
+      <Route path="/" element={<RootRedirect />} />
+    </Routes>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}
