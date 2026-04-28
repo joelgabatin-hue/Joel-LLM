@@ -2,7 +2,7 @@
   "mcpServers": {
     "supabase": {
       "type": "http",
-      "url": "https://mcp.supabase.com/mcp?project_ref=nbonvdzlcjoacdiepauq"
+      "url": "https://mcp.supabase.com/mcp?project_ref=nbonvdzlcjoacdiepauq&features=database,docs,development,debugging,edge_functions"
     }
   }
 }
