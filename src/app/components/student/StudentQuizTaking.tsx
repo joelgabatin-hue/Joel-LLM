@@ -37,6 +37,7 @@ interface QuizInfo {
   title: string;
   time_limit_minutes: number | null;
   shuffle_questions: boolean;
+  subject_id: string;
 }
 
 interface AnswerState {
@@ -151,7 +152,7 @@ export default function StudentQuizTaking() {
 
     const { data: quizData, error: quizErr } = await supabase
       .from('quizzes')
-      .select('id, title, time_limit_minutes, shuffle_questions')
+      .select('id, title, time_limit_minutes, shuffle_questions, subject_id')
       .eq('id', quizId)
       .single();
 
@@ -160,6 +161,26 @@ export default function StudentQuizTaking() {
       setLoading(false);
       return;
     }
+
+    const { data: enrollment, error: enrollmentErr } = await supabase
+      .from('subject_enrollments')
+      .select('blocked')
+      .eq('subject_id', quizData.subject_id)
+      .eq('student_id', user.id)
+      .maybeSingle();
+
+    if (enrollmentErr || !enrollment) {
+      setError('You are not enrolled in the subject for this quiz.');
+      setLoading(false);
+      return;
+    }
+
+    if (enrollment.blocked) {
+      setError('You have been blocked from taking quizzes in this subject.');
+      setLoading(false);
+      return;
+    }
+
     setQuiz(quizData);
     if (quizData.time_limit_minutes) {
       setTimeRemaining(quizData.time_limit_minutes * 60);

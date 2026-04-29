@@ -13,6 +13,10 @@ interface SubjectInfo {
   description: string;
 }
 
+interface EnrollmentInfo {
+  blocked: boolean;
+}
+
 interface QuizWithStatus {
   id: string;
   title: string;
@@ -27,6 +31,7 @@ export default function StudentSubjectDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const [subject, setSubject] = useState<SubjectInfo | null>(null);
+  const [enrollment, setEnrollment] = useState<EnrollmentInfo | null>(null);
   const [quizzes, setQuizzes] = useState<QuizWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -36,8 +41,24 @@ export default function StudentSubjectDetail() {
 
   async function fetchData() {
     setLoading(true);
-    await Promise.allSettled([fetchSubject(), fetchQuizzes()]);
+    const enrollmentData = await fetchEnrollment();
+    await Promise.allSettled([fetchSubject(), fetchQuizzes(enrollmentData)]);
     setLoading(false);
+  }
+
+  async function fetchEnrollment() {
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('subject_enrollments')
+      .select('blocked')
+      .eq('subject_id', id)
+      .eq('student_id', user.id)
+      .maybeSingle();
+
+    const enrollmentData = data ? { blocked: !!data.blocked } : null;
+    setEnrollment(enrollmentData);
+    return enrollmentData;
   }
 
   async function fetchSubject() {
@@ -49,8 +70,12 @@ export default function StudentSubjectDetail() {
     if (data) setSubject(data);
   }
 
-  async function fetchQuizzes() {
+  async function fetchQuizzes(enrollmentData?: EnrollmentInfo | null) {
     if (!user) return;
+    if (enrollmentData?.blocked) {
+      setQuizzes([]);
+      return;
+    }
 
     const { data: quizData } = await supabase
       .from('quizzes')
@@ -111,6 +136,11 @@ export default function StudentSubjectDetail() {
       <div className="mb-8">
         <h1 className="text-[30px] font-bold text-[#111827] mb-2">{subject.name}</h1>
         <p className="text-[#4B5563] mb-3">{subject.description}</p>
+        {enrollment?.blocked && (
+          <div className="max-w-2xl rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[14px] text-red-700">
+            Your admin has blocked you from taking quizzes in this subject.
+          </div>
+        )}
         {quizzes.length > 0 && (
           <p className="text-[14px] text-[#4B5563]">{completedCount} of {quizzes.length} quizzes completed</p>
         )}
@@ -118,7 +148,12 @@ export default function StudentSubjectDetail() {
 
       <h2 className="text-[24px] font-semibold text-[#111827] mb-4">Quizzes</h2>
 
-      {quizzes.length === 0 ? (
+      {enrollment?.blocked ? (
+        <div className="text-center py-16 text-[#4B5563]">
+          <FileQuestion className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+          <p className="font-medium">Quiz access is blocked for this subject.</p>
+        </div>
+      ) : quizzes.length === 0 ? (
         <div className="text-center py-16 text-[#4B5563]">
           <FileQuestion className="w-12 h-12 mx-auto mb-3 text-gray-300" />
           <p className="font-medium">No quizzes available yet.</p>

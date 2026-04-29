@@ -28,6 +28,7 @@ interface StudentRow {
   email: string;
   avatar_url: string | null;
   enrolled_at: string;
+  blocked: boolean;
 }
 
 export default function AdminSubjectDetail() {
@@ -81,7 +82,7 @@ export default function AdminSubjectDetail() {
   async function fetchStudents() {
     const { data, error } = await supabase
       .from('subject_enrollments')
-      .select('enrolled_at, users(id, full_name, email, avatar_url)')
+      .select('enrolled_at, blocked, users(id, full_name, email, avatar_url)')
       .eq('subject_id', id);
 
     if (error) { setError(error.message); return; }
@@ -92,6 +93,7 @@ export default function AdminSubjectDetail() {
       email: e.users.email,
       avatar_url: e.users.avatar_url,
       enrolled_at: e.enrolled_at,
+      blocked: !!e.blocked,
     })));
   }
 
@@ -111,6 +113,26 @@ export default function AdminSubjectDetail() {
       .eq('student_id', studentId);
     if (error) setError(error.message);
     else setStudents(prev => prev.filter(s => s.id !== studentId));
+  }
+
+  async function handleToggleBlock(studentId: string, nextBlocked: boolean) {
+    const action = nextBlocked ? 'block' : 'unblock';
+    if (!confirm(`Are you sure you want to ${action} this student from taking quizzes in this subject?`)) return;
+
+    const { error } = await supabase
+      .from('subject_enrollments')
+      .update({ blocked: nextBlocked })
+      .eq('subject_id', id)
+      .eq('student_id', studentId);
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    setStudents(prev => prev.map(student => (
+      student.id === studentId ? { ...student, blocked: nextBlocked } : student
+    )));
   }
 
   if (loading) {
@@ -175,10 +197,10 @@ export default function AdminSubjectDetail() {
         <div className="grid grid-cols-3 gap-6">
           <Card>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[12px] text-[#4B5563]">Enrolled Students</p>
+              <p className="text-[12px] text-[#4B5563]">Active Students</p>
               <UsersIcon className="w-5 h-5 text-[#4F46E5]" />
             </div>
-            <p className="text-[30px] font-bold text-[#111827]">{students.length}</p>
+            <p className="text-[30px] font-bold text-[#111827]">{students.filter(student => !student.blocked).length}</p>
           </Card>
           <Card>
             <div className="flex items-center justify-between mb-2">
@@ -294,6 +316,7 @@ export default function AdminSubjectDetail() {
                     <tr className="border-b border-[#D1D5DB]">
                       <th className="text-left py-3 px-4 text-[12px] font-semibold text-[#4B5563] uppercase">Student</th>
                       <th className="text-left py-3 px-4 text-[12px] font-semibold text-[#4B5563] uppercase">Email</th>
+                      <th className="text-left py-3 px-4 text-[12px] font-semibold text-[#4B5563] uppercase">Access</th>
                       <th className="text-left py-3 px-4 text-[12px] font-semibold text-[#4B5563] uppercase">Enrolled</th>
                       <th className="text-left py-3 px-4 text-[12px] font-semibold text-[#4B5563] uppercase">Actions</th>
                     </tr>
@@ -312,13 +335,27 @@ export default function AdminSubjectDetail() {
                           </div>
                         </td>
                         <td className="py-3 px-4 text-[14px] text-[#4B5563]">{student.email}</td>
+                        <td className="py-3 px-4">
+                          <Badge variant={student.blocked ? 'danger' : 'success'}>
+                            {student.blocked ? 'Blocked' : 'Allowed'}
+                          </Badge>
+                        </td>
                         <td className="py-3 px-4 text-[14px] text-[#4B5563]">
                           {new Date(student.enrolled_at).toLocaleDateString()}
                         </td>
                         <td className="py-3 px-4">
-                          <Button variant="danger" size="sm" onClick={() => handleRemoveStudent(student.id)}>
-                            Remove
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              variant={student.blocked ? 'secondary' : 'danger'}
+                              size="sm"
+                              onClick={() => handleToggleBlock(student.id, !student.blocked)}
+                            >
+                              {student.blocked ? 'Unblock' : 'Block'}
+                            </Button>
+                            <Button variant="danger" size="sm" onClick={() => handleRemoveStudent(student.id)}>
+                              Remove
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}

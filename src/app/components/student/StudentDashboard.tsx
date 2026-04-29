@@ -16,6 +16,7 @@ interface SubjectProgress {
   completed: number;
   total: number;
   progress: number;
+  blocked: boolean;
 }
 
 interface RecentAttempt {
@@ -51,7 +52,7 @@ export default function StudentDashboard() {
     if (!user) return;
     const { data: enrollments } = await supabase
       .from('subject_enrollments')
-      .select('subject_id, subjects(id, name)')
+      .select('subject_id, blocked, subjects(id, name)')
       .eq('student_id', user.id);
 
     if (!enrollments?.length) { setSubjects([]); return; }
@@ -71,13 +72,17 @@ export default function StudentDashboard() {
       const completed = subQuizzes.filter((q: any) => completedIds.has(q.id)).length;
       const total = subQuizzes.length;
       const next = subQuizzes.find((q: any) => !completedIds.has(q.id));
+      const blocked = !!e.blocked;
       return {
         id: e.subject_id,
         name: sub?.name || 'Unknown',
-        nextQuiz: next?.title ?? (total > 0 ? 'All quizzes completed!' : 'No quizzes yet'),
+        nextQuiz: blocked
+          ? 'Quiz access blocked by admin'
+          : next?.title ?? (total > 0 ? 'All quizzes completed!' : 'No quizzes yet'),
         completed,
         total,
         progress: total > 0 ? Math.round((completed / total) * 100) : 0,
+        blocked,
       };
     }));
   }
@@ -179,7 +184,10 @@ export default function StudentDashboard() {
           <div className="grid grid-cols-3 gap-6">
             {subjects.map((subject) => (
               <Card key={subject.id} hover>
-                <h3 className="text-[18px] font-semibold text-[#111827] mb-3">{subject.name}</h3>
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <h3 className="text-[18px] font-semibold text-[#111827]">{subject.name}</h3>
+                  {subject.blocked && <Badge variant="danger">Blocked</Badge>}
+                </div>
                 <div className="mb-4">
                   <p className="text-[12px] text-[#4B5563] mb-1">Next Quiz</p>
                   <p className="text-[14px] text-[#111827] font-medium truncate">{subject.nextQuiz}</p>

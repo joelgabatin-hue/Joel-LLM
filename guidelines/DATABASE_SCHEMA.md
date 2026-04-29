@@ -78,6 +78,7 @@ CREATE TABLE subject_enrollments (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   subject_id  UUID NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
   student_id  UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  blocked     BOOLEAN NOT NULL DEFAULT FALSE,
   enrolled_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (subject_id, student_id)
 );
@@ -312,7 +313,9 @@ CREATE POLICY "student_read_available_quizzes" ON quizzes
     AND (available_until IS NULL OR available_until >= NOW())
     AND EXISTS (
       SELECT 1 FROM subject_enrollments
-      WHERE subject_id = quizzes.subject_id AND student_id = auth.uid()
+      WHERE subject_id = quizzes.subject_id
+        AND student_id = auth.uid()
+        AND blocked = FALSE
     )
   );
 ```
@@ -337,6 +340,7 @@ CREATE POLICY "student_read_questions" ON questions
       WHERE q.id = questions.quiz_id
         AND q.status = 'published'
         AND se.student_id = auth.uid()
+        AND se.blocked = FALSE
     )
   );
 ```
@@ -362,6 +366,7 @@ CREATE POLICY "student_read_options" ON question_options
       WHERE qn.id = question_options.question_id
         AND q.status = 'published'
         AND se.student_id = auth.uid()
+        AND se.blocked = FALSE
     )
   );
 ```
@@ -377,10 +382,48 @@ CREATE POLICY "admin_all_attempts" ON quiz_attempts
     EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
   );
 
--- Students: read and insert their own attempts
-CREATE POLICY "student_own_attempts" ON quiz_attempts
-  FOR ALL USING (student_id = auth.uid())
-  WITH CHECK (student_id = auth.uid());
+-- Students: read their own attempts
+CREATE POLICY "student_read_own_attempts" ON quiz_attempts
+  FOR SELECT USING (student_id = auth.uid());
+
+-- Students: create attempts only while enrolled and not blocked
+CREATE POLICY "student_insert_own_attempts" ON quiz_attempts
+  FOR INSERT WITH CHECK (
+    student_id = auth.uid()
+    AND EXISTS (
+      SELECT 1
+      FROM quizzes q
+      JOIN subject_enrollments se ON se.subject_id = q.subject_id
+      WHERE q.id = quiz_attempts.quiz_id
+        AND se.student_id = auth.uid()
+        AND se.blocked = FALSE
+    )
+  );
+
+-- Students: update attempts only while still allowed to access the quiz
+CREATE POLICY "student_update_own_attempts_when_allowed" ON quiz_attempts
+  FOR UPDATE USING (
+    student_id = auth.uid()
+    AND EXISTS (
+      SELECT 1
+      FROM quizzes q
+      JOIN subject_enrollments se ON se.subject_id = q.subject_id
+      WHERE q.id = quiz_attempts.quiz_id
+        AND se.student_id = auth.uid()
+        AND se.blocked = FALSE
+    )
+  )
+  WITH CHECK (
+    student_id = auth.uid()
+    AND EXISTS (
+      SELECT 1
+      FROM quizzes q
+      JOIN subject_enrollments se ON se.subject_id = q.subject_id
+      WHERE q.id = quiz_attempts.quiz_id
+        AND se.student_id = auth.uid()
+        AND se.blocked = FALSE
+    )
+  );
 ```
 
 ### `attempt_answers` table
@@ -394,18 +437,53 @@ CREATE POLICY "admin_all_answers" ON attempt_answers
     EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
   );
 
--- Students: read and insert their own answers
-CREATE POLICY "student_own_answers" ON attempt_answers
-  FOR ALL USING (
+-- Students: read their own saved answers
+CREATE POLICY "student_read_own_answers" ON attempt_answers
+  FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM quiz_attempts
       WHERE id = attempt_answers.attempt_id AND student_id = auth.uid()
     )
+  );
+
+-- Students: write answers only while still allowed to access the quiz
+CREATE POLICY "student_write_own_answers_when_allowed" ON attempt_answers
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM quiz_attempts qa
+      JOIN quizzes q ON q.id = qa.quiz_id
+      JOIN subject_enrollments se ON se.subject_id = q.subject_id
+      WHERE qa.id = attempt_answers.attempt_id
+        AND qa.student_id = auth.uid()
+        AND se.student_id = auth.uid()
+        AND se.blocked = FALSE
+    )
+  );
+
+CREATE POLICY "student_update_own_answers_when_allowed" ON attempt_answers
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1
+      FROM quiz_attempts qa
+      JOIN quizzes q ON q.id = qa.quiz_id
+      JOIN subject_enrollments se ON se.subject_id = q.subject_id
+      WHERE qa.id = attempt_answers.attempt_id
+        AND qa.student_id = auth.uid()
+        AND se.student_id = auth.uid()
+        AND se.blocked = FALSE
+    )
   )
   WITH CHECK (
     EXISTS (
-      SELECT 1 FROM quiz_attempts
-      WHERE id = attempt_answers.attempt_id AND student_id = auth.uid()
+      SELECT 1
+      FROM quiz_attempts qa
+      JOIN quizzes q ON q.id = qa.quiz_id
+      JOIN subject_enrollments se ON se.subject_id = q.subject_id
+      WHERE qa.id = attempt_answers.attempt_id
+        AND qa.student_id = auth.uid()
+        AND se.student_id = auth.uid()
+        AND se.blocked = FALSE
     )
   );
 ```
