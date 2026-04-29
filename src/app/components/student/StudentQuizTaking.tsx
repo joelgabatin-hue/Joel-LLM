@@ -36,6 +36,7 @@ interface QuizInfo {
   id: string;
   title: string;
   time_limit_minutes: number | null;
+  shuffle_questions: boolean;
 }
 
 interface AnswerState {
@@ -150,7 +151,7 @@ export default function StudentQuizTaking() {
 
     const { data: quizData, error: quizErr } = await supabase
       .from('quizzes')
-      .select('id, title, time_limit_minutes')
+      .select('id, title, time_limit_minutes, shuffle_questions')
       .eq('id', quizId)
       .single();
 
@@ -170,10 +171,18 @@ export default function StudentQuizTaking() {
       .eq('quiz_id', quizId)
       .order('sort_order', { ascending: true });
 
-    const loadedQuestions: DBQuestion[] = (qData || []).map((q: any) => ({
+    let loadedQuestions: DBQuestion[] = (qData || []).map((q: any) => ({
       ...q,
       question_options: (q.question_options || []).sort((a: any, b: any) => a.sort_order - b.sort_order),
     }));
+
+    if (quizData.shuffle_questions) {
+      for (let i = loadedQuestions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [loadedQuestions[i], loadedQuestions[j]] = [loadedQuestions[j], loadedQuestions[i]];
+      }
+    }
+
     setQuestions(loadedQuestions);
 
     // Init empty answer state (enumeration needs pre-sized arrays)

@@ -106,6 +106,7 @@ export default function AdminQuizBuilder() {
   const [timeLimit, setTimeLimit] = useState(30);
   const [timeLimitEnabled, setTimeLimitEnabled] = useState(false);
   const [showCorrectAnswers, setShowCorrectAnswers] = useState(true);
+  const [shuffleQuestions, setShuffleQuestions] = useState(false);
   const [status, setStatus] = useState<'draft' | 'published'>('draft');
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(!!quizId);
@@ -149,6 +150,7 @@ export default function AdminQuizBuilder() {
     setTimeLimit(data.time_limit_minutes || 30);
     setTimeLimitEnabled(!!data.time_limit_minutes);
     setShowCorrectAnswers(data.show_answers_after);
+    setShuffleQuestions(data.shuffle_questions ?? false);
     setStatus(data.status);
 
     const sorted = [...(data.questions || [])].sort((a: any, b: any) => a.sort_order - b.sort_order);
@@ -293,6 +295,7 @@ export default function AdminQuizBuilder() {
         instructions: instructions.trim() || null,
         time_limit_minutes: timeLimitEnabled ? timeLimit : null,
         show_answers_after: showCorrectAnswers,
+        shuffle_questions: shuffleQuestions,
         status,
         created_by: user.id,
       };
@@ -459,7 +462,7 @@ export default function AdminQuizBuilder() {
                 />
               )}
             </div>
-            <div className="flex items-start pt-1">
+            <div className="flex flex-col gap-3 pt-1">
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -468,6 +471,15 @@ export default function AdminQuizBuilder() {
                   className="w-4 h-4 text-[#4F46E5] rounded border-[#D1D5DB] focus:ring-2 focus:ring-[#4F46E5]"
                 />
                 <span className="text-[14px] font-medium text-[#111827]">Show correct answers after submission</span>
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={shuffleQuestions}
+                  onChange={(e) => setShuffleQuestions(e.target.checked)}
+                  className="w-4 h-4 text-[#4F46E5] rounded border-[#D1D5DB] focus:ring-2 focus:ring-[#4F46E5]"
+                />
+                <span className="text-[14px] font-medium text-[#111827]">Shuffle question order</span>
               </label>
             </div>
           </div>
